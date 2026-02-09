@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="es">
+<head>
+<link rel="icon" href="data:image/svg+xml,
+<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22>
+  <text y=%22.9em%22 font-size=%2290%22>🎁</text>
+</svg>">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini Laberinto</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#111a33;
+      --ink:#eaf0ff;
+      --muted:#a9b6e6;
+      --accent:#7aa6ff;
+      --good:#47d18c;
+      --bad:#ff5a7a;
+      --cell:28px;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      background:radial-gradient(1000px 600px at 30% 20%, #1a2a66 0%, var(--bg) 55%, #070a14 100%);
+      color:var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans";
+      padding:18px;
+    }
+    .wrap{
+      width:min(880px, 100%);
+      display:grid;
+      gap:14px;
+      grid-template-columns: 1fr;
+    }
+
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+      border:1px solid rgba(255,255,255,0.10);
+      border-radius:18px;
+      padding:16px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    }
+    .top{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:0.3px;
+    }
+    .sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.35;
+      max-width:60ch;
+    }
+    .pill{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(0,0,0,0.18);
+      color:var(--muted);
+      font-size:12px;
+      user-select:none;
+    }
+    .mazeBox{
+      display:grid;
+      gap:12px;
+      grid-template-columns: 1fr;
+      align-items:start;
+    }
+
+
+    canvas{
+      width:100%;
+      max-width:640px;
+      aspect-ratio: 16 / 10;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(0,0,0,0.22);
+      display:block;
+      touch-action:none;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    button{
+      appearance:none;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(0,0,0,0.18);
+      color:var(--ink);
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+      letter-spacing:0.2px;
+    }
+    button:hover{ border-color: rgba(122,166,255,0.65) }
+    button.primary{
+      background:linear-gradient(180deg, rgba(122,166,255,0.35), rgba(122,166,255,0.18));
+      border-color: rgba(122,166,255,0.55);
+    }
+    button.good{
+      background:linear-gradient(180deg, rgba(71,209,140,0.30), rgba(71,209,140,0.15));
+      border-color: rgba(71,209,140,0.55);
+    }
+    .controls{
+      display:grid;
+      gap:8px;
+      grid-template-columns: 1fr;
+      max-width:640px;
+    }
+    .dpad{
+      display:grid;
+      gap:8px;
+      grid-template-columns: repeat(3, 1fr);
+      max-width:260px;
+    }
+    .dpad button{ padding:12px 0; font-size:14px }
+    .hint{
+      color:var(--muted);
+      font-size:12px;
+      margin:0;
+    }
+
+    /* modal */
+    .modalBack{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.55);
+      display:none;
+      place-items:center;
+      padding:18px;
+      z-index:10;
+    }
+    .modal{
+      width:min(520px, 100%);
+      background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.05));
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius:18px;
+      padding:18px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+    }
+    .modal h2{ margin:0; font-size:18px }
+    .modal p{ margin:8px 0 14px; color:var(--muted); line-height:1.45 }
+    .modal .row{ justify-content:flex-end }
+    .badge{
+      display:inline-block;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.18);
+      color:var(--muted);
+      font-size:12px;
+      margin-left:8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card top">
+      <div>
+        <h1>Mini laberinto</h1>
+        <p class="sub">
+          Llega al corazón. En compu: <b>Flechas</b> o <b>WASD</b>. En celular: usa los botones.
+          <span class="badge">Nivel 1</span>
+        </p>
+      </div>
+      <div class="pill" id="statusPill">Movimientos: <span id="moves">0</span></div>
+    </div>
+
+    <div class="card mazeBox">
+
+<div id="timeGate" style="display:none; margin:12px 0; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.18); background:rgba(0,0,0,0.18);">
+  <b>Aún no 👀</b><br>
+  Se desbloquea a las <b>23:30</b>.<br>
+  <span id="countdown"></span>
+</div>
+      <canvas id="c" width="640" height="400" aria-label="Laberinto"></canvas>
+
+      <div class="controls">
+        <div class="row">
+          <button class="primary" id="resetBtn">Reiniciar</button>
+          <button id="hintBtn">Pista</button>
+        </div>
+
+        <div class="dpad" aria-label="Controles">
+          <span></span>
+          <button id="upBtn">▲</button>
+          <span></span>
+          <button id="leftBtn">◀</button>
+          <button id="downBtn">▼</button>
+          <button id="rightBtn">▶</button>
+        </div>
+
+        <p class="hint" id="hintText"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modalBack" id="modalBack" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="modal">
+      <h2 id="winTitle">Felicitaciones 🎉</h2>
+      <p>
+        Llegaste al final! Raclama tu premio Ana Gabriela! 🙊
+      </p>
+      <div class="row">
+        <button id="closeBtn">Cerrar</button>
+        <button class="good" id="giftBtn">Abrir regalo 🎁</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================
+    // 1) CONFIG: put your Drive link here
+    // ==========================
+    const GIFT_LINK = "https://drive.google.com/file/d/1qjhLT7IXxYwmLEjeQYl5iC5Mc2KlBqZh/view?usp=sharing";
+
+// ---- Time gate config
+const UNLOCK_HOUR = 23;
+const UNLOCK_MIN  = 30;
+
+// Elements you want to disable until unlock
+const gateEl = document.getElementById("timeGate");
+const countdownEl = document.getElementById("countdown");
+const canvasEl = document.getElementById("c");
+
+// If you want to disable buttons too:
+const controlsToDisable = ["upBtn","downBtn","leftBtn","rightBtn","resetBtn","hintBtn"]
+  .map(id => document.getElementById(id))
+  .filter(Boolean);
+
+function msUntilUnlock(now){
+  const unlock = new Date(now);
+  unlock.setHours(UNLOCK_HOUR, UNLOCK_MIN, 0, 0);
+  if (now >= unlock) return 0;
+  return unlock - now;
+}
+
+function fmt(ms){
+  const s = Math.max(0, Math.floor(ms/1000));
+  const h = String(Math.floor(s/3600)).padStart(2,"0");
+  const m = String(Math.floor((s%3600)/60)).padStart(2,"0");
+  const ss= String(s%60).padStart(2,"0");
+  return `${h}:${m}:${ss}`;
+}
+
+function setLocked(isLocked){
+  // Block interactions
+  canvasEl.style.pointerEvents = isLocked ? "none" : "auto";
+  canvasEl.style.filter = isLocked ? "blur(2px) brightness(0.8)" : "none";
+
+  controlsToDisable.forEach(btn => btn.disabled = isLocked);
+  gateEl.style.display = isLocked ? "block" : "none";
+}
+
+function updateGate(){
+  const now = new Date();
+  const ms = msUntilUnlock(now);
+
+  if (ms === 0){
+    setLocked(false);
+    clearInterval(window.__gateTimer);
+    return;
+  }
+
+  setLocked(true);
+  countdownEl.textContent = `Faltan ${fmt(ms)}.`;
+}
+
+// Start the gate check (updates every second)
+
+updateGate();
+window.__gateTimer = setInterval(updateGate, 1000);
+
+
+    // ==========================
+    // 2) Maze definition
+    // Legend: 1 = wall, 0 = path
+    // ==========================
+   const grid = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,1,0,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+  [1,0,1,0,1,0,1,1,1,0,1,0,1,1,1,1,0,1,1,1,0,1,1,1,1],
+  [1,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,0,0,1],
+  [1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,1,0,1,1,1,1,0,1],
+  [1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1],
+  [1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,1],
+  [1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1],
+  [1,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1],
+  [1,0,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,1],
+  [1,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1,0,1],
+  [1,1,1,0,1,0,1,1,1,1,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,0,1],
+  [1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+const start = { r: 1, c: 1 };
+const goal  = { r: 15, c: 23 };
+
+    // ==========================
+    // 3) Rendering + movement
+    // ==========================
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+
+    const movesEl = document.getElementById("moves");
+    const hintText = document.getElementById("hintText");
+
+    const modalBack = document.getElementById("modalBack");
+    const giftBtn = document.getElementById("giftBtn");
+    const closeBtn = document.getElementById("closeBtn");
+
+    let player = { ...start };
+    let moves = 0;
+    let hintOn = false;
+
+    function cellSize(){
+      // Fit grid to canvas size
+      const rows = grid.length, cols = grid[0].length;
+      return {
+        w: canvas.width / cols,
+        h: canvas.height / rows
+      };
+    }
+
+    function draw(){
+      const rows = grid.length, cols = grid[0].length;
+      const { w, h } = cellSize();
+
+      ctx.clearRect(0,0,canvas.width, canvas.height);
+
+      // background grid
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          const x = c*w, y = r*h;
+          if(grid[r][c] === 1){
+            ctx.fillStyle = "rgba(255,255,255,0.08)";
+            ctx.fillRect(x,y,w,h);
+          } else {
+            ctx.fillStyle = "rgba(0,0,0,0.10)";
+            ctx.fillRect(x,y,w,h);
+          }
+        }
+      }
+
+      // hint path (very light)
+      if(hintOn){
+        const path = shortestPath(player, goal);
+        if(path){
+          ctx.fillStyle = "rgba(122,166,255,0.14)";
+          for(const p of path){
+            ctx.fillRect(p.c*w, p.r*h, w, h);
+          }
+        }
+      }
+
+      // goal (heart)
+      {
+        const x = goal.c*w + w/2;
+        const y = goal.r*h + h/2;
+        ctx.font = `${Math.floor(Math.min(w,h)*0.75)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("❤", x, y+1);
+      }
+
+      // player
+      {
+        const x = player.c*w + w/2;
+        const y = player.r*h + h/2;
+        const rad = Math.min(w,h)*0.28;
+        ctx.beginPath();
+        ctx.arc(x,y,rad,0,Math.PI*2);
+        ctx.fillStyle = "rgba(71,209,140,0.95)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(x,y,rad*1.25,0,Math.PI*2);
+        ctx.strokeStyle = "rgba(71,209,140,0.25)";
+        ctx.lineWidth = rad*0.6;
+        ctx.stroke();
+      }
+
+      // subtle border
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(1,1,canvas.width-2, canvas.height-2);
+    }
+
+    function canMove(r,c){
+      return grid[r] && grid[r][c] === 0;
+    }
+
+    function move(dr, dc){
+      const nr = player.r + dr;
+      const nc = player.c + dc;
+      if(canMove(nr,nc)){
+        player.r = nr; player.c = nc;
+        moves++;
+        movesEl.textContent = String(moves);
+        draw();
+        checkWin();
+      } else {
+        // tiny shake feedback
+        canvas.animate(
+          [{ transform: "translateX(0px)" }, { transform: "translateX(-2px)" }, { transform: "translateX(2px)" }, { transform: "translateX(0px)" }],
+          { duration: 140, iterations: 1 }
+        );
+      }
+    }
+
+    function checkWin(){
+      if(player.r === goal.r && player.c === goal.c){
+        modalBack.style.display = "grid";
+      }
+    }
+
+    function reset(){
+      player = { ...start };
+      moves = 0;
+      movesEl.textContent = "0";
+      hintOn = false;
+      hintText.textContent = "";
+      modalBack.style.display = "none";
+      draw();
+    }
+
+    // ==========================
+    // 4) Shortest-path (for hint)
+    // ==========================
+    function shortestPath(src, dst){
+      const rows = grid.length, cols = grid[0].length;
+      const q = [];
+      const prev = Array.from({length: rows}, () => Array(cols).fill(null));
+      q.push(src);
+      prev[src.r][src.c] = { r: src.r, c: src.c }; // mark visited
+
+      const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+      while(q.length){
+        const cur = q.shift();
+        if(cur.r === dst.r && cur.c === dst.c) break;
+        for(const [dr,dc] of dirs){
+          const nr = cur.r + dr, nc = cur.c + dc;
+          if(nr<0 || nc<0 || nr>=rows || nc>=cols) continue;
+          if(grid[nr][nc] === 1) continue;
+          if(prev[nr][nc]) continue;
+          prev[nr][nc] = { r: cur.r, c: cur.c };
+          q.push({ r:nr, c:nc });
+        }
+      }
+      if(!prev[dst.r][dst.c]) return null;
+      const path = [];
+      let cur = { r: dst.r, c: dst.c };
+      while(!(cur.r === src.r && cur.c === src.c)){
+        path.push(cur);
+        cur = prev[cur.r][cur.c];
+      }
+      path.push(src);
+      path.reverse();
+      return path;
+    }
+
+    // ==========================
+    // 5) Input handlers
+    // ==========================
+    window.addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+      if(["arrowup","w"].includes(k)) { e.preventDefault(); move(-1,0); }
+      if(["arrowdown","s"].includes(k)) { e.preventDefault(); move(1,0); }
+      if(["arrowleft","a"].includes(k)) { e.preventDefault(); move(0,-1); }
+      if(["arrowright","d"].includes(k)) { e.preventDefault(); move(0,1); }
+    }, { passive:false });
+
+    // mobile buttons
+    document.getElementById("upBtn").onclick = () => move(-1,0);
+    document.getElementById("downBtn").onclick = () => move(1,0);
+    document.getElementById("leftBtn").onclick = () => move(0,-1);
+    document.getElementById("rightBtn").onclick = () => move(0,1);
+
+    // reset + hint
+    document.getElementById("resetBtn").onclick = reset;
+    document.getElementById("hintBtn").onclick = () => {
+  hintText.textContent = "Sin pistas 😉";
+};
+
+    // modal
+    closeBtn.onclick = () => { modalBack.style.display = "none"; };
+    giftBtn.onclick = () => {
+      if(!GIFT_LINK || GIFT_LINK.includes("PASTE_YOUR_DRIVE_LINK_HERE")){
+        alert("Falta pegar el link de Drive en la variable GIFT_LINK dentro del HTML.");
+        return;
+      }
+      window.open(GIFT_LINK, "_blank", "noopener,noreferrer");
+    };
+
+    // initial
+    reset();
+  </script>
+</body>
+</html>
